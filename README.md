@@ -1,75 +1,49 @@
-# Inventory Management API
+# Inventory Manager
 
-A small Flask service for tracking stock, with a command-line client and product lookups through OpenFoodFacts.
+A beginner-friendly Flask project for keeping track of products. The API stores items in a Python list while it is running. Restarting the server clears the list.
 
-## Setup
+## Run it
 
-Use Python 3.10 or newer. Install the dependencies and start the server:
+Install the packages:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Start the API in one terminal:
+
+```bash
 python app.py
 ```
 
-The service listens at `http://127.0.0.1:5000`. Inventory is stored in `instance/inventory.sqlite3`.
+Open another terminal and run the menu:
 
-## API
+```bash
+python cli.py
+```
 
-| Method | Path | Description |
+The menu lets you list, add, update, or delete an item, look up an OpenFoodFacts product, and import a product into the inventory.
+
+## Try the API
+
+The API is available at `http://127.0.0.1:5000`.
+
+| Method | Address | What it does |
 | --- | --- | --- |
-| `GET` | `/api/items` | List inventory |
-| `GET` | `/api/items/<id>` | Read one item |
-| `POST` | `/api/items` | Create an item |
-| `PATCH` | `/api/items/<id>` | Update supplied fields |
-| `DELETE` | `/api/items/<id>` | Delete an item |
-| `GET` | `/api/products/lookup?barcode=<code>` | Look up a barcode |
-| `GET` | `/api/products/lookup?name=<name>` | Search by product name |
-| `POST` | `/api/items/import` | Look up a product and add it to inventory |
+| `GET` | `/api/items` | Show all items |
+| `GET` | `/api/items/1` | Show item 1 |
+| `POST` | `/api/items` | Add an item |
+| `PATCH` | `/api/items/1` | Change item 1 |
+| `DELETE` | `/api/items/1` | Delete item 1 |
+| `GET` | `/api/products/lookup?barcode=123` | Find a product |
+| `POST` | `/api/items/import` | Find a product and add it |
 
-Inventory item fields are `name`, `barcode`, `category`, `quantity`, `price`, and `description`. A name is required; quantity and price default to zero. Quantity and price cannot be negative, and barcodes must be unique.
+An item can have a name, barcode, category, quantity, price, and description. OpenFoodFacts supplies product details; the store supplies its quantity and price.
 
-For example, create an item with:
-
-```bash
-curl -X POST http://127.0.0.1:5000/api/items \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Oat milk","category":"Drinks","quantity":12,"price":3.5}'
-```
-
-To import a product, send its barcode and optional stock details:
-
-```bash
-curl -X POST http://127.0.0.1:5000/api/items/import \
-  -H 'Content-Type: application/json' \
-  -d '{"barcode":"3017620422003","quantity":8,"price":4.25}'
-```
-
-The import endpoint uses OpenFoodFacts to fill in product name, category, and description. Price and stock are supplied by the store, not the product database.
-
-## CLI
-
-With the server running, use `cli.py` to issue API requests:
-
-```bash
-python cli.py list
-python cli.py add --name "Oat milk" --category Drinks --quantity 12 --price 3.5
-python cli.py update 1 --quantity 9
-python cli.py lookup --barcode 3017620422003
-python cli.py import --barcode 3017620422003 --quantity 8 --price 4.25
-python cli.py show 1
-python cli.py delete 1
-```
-
-Set `INVENTORY_API_URL` or pass `--url` to target a different server.
-
-## Tests
-
-Run the test suite with:
+## Run the tests
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-External requests are mocked in tests, so running them does not require access to OpenFoodFacts.
+The tests use sample product responses, so they do not need to connect to OpenFoodFacts.

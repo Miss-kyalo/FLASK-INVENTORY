@@ -1,132 +1,71 @@
-import argparse
-import json
-import os
-import sys
-
 import requests
 
 
-def api_request(method, path, payload=None, base_url=None, params=None):
-    url = f"{(base_url or os.environ.get('INVENTORY_API_URL', 'http://127.0.0.1:5000')).rstrip('/')}{path}"
+API_URL = "http://127.0.0.1:5000"
+
+
+def send_request(method, path, data=None, params=None):
     try:
         response = requests.request(
-            method, url, json=payload, params=params, timeout=10
+            method, API_URL + path, json=data, params=params, timeout=10
         )
-        response.raise_for_status()
+        print(response.json())
     except requests.RequestException as error:
-        print(f"Request failed: {error}", file=sys.stderr)
-        return 1
-    if response.content:
-        print(json.dumps(response.json(), indent=2))
-    return 0
+        print("Could not reach the API:", error)
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(description="Manage inventory through the Flask API")
-    parser.add_argument(
-        "--url",
-        default=os.environ.get("INVENTORY_API_URL", "http://127.0.0.1:5000"),
-        help="API base URL",
-    )
-    commands = parser.add_subparsers(dest="command", required=True)
+def main():
+    print("Inventory manager")
+    print("1. List items")
+    print("2. Add item")
+    print("3. Update item")
+    print("4. Delete item")
+    print("5. Look up a product")
+    print("6. Import a product")
 
-    commands.add_parser("list", help="List all inventory items")
+    choice = input("Choose an option: ")
 
-    show = commands.add_parser("show", help="Show one inventory item")
-    show.add_argument("id", type=int)
-
-    add = commands.add_parser("add", help="Create an inventory item")
-    add.add_argument("--name", required=True)
-    add.add_argument("--barcode")
-    add.add_argument("--category", default="")
-    add.add_argument("--quantity", type=int, default=0)
-    add.add_argument("--price", type=float, default=0)
-    add.add_argument("--description", default="")
-
-    update = commands.add_parser("update", help="Update inventory item fields")
-    update.add_argument("id", type=int)
-    update.add_argument("--name")
-    update.add_argument("--barcode")
-    update.add_argument("--category")
-    update.add_argument("--quantity", type=int)
-    update.add_argument("--price", type=float)
-    update.add_argument("--description")
-
-    delete = commands.add_parser("delete", help="Delete an inventory item")
-    delete.add_argument("id", type=int)
-
-    lookup = commands.add_parser("lookup", help="Search OpenFoodFacts")
-    lookup.add_argument("--barcode")
-    lookup.add_argument("--name")
-
-    import_product = commands.add_parser("import", help="Import an OpenFoodFacts product")
-    import_product.add_argument("--barcode")
-    import_product.add_argument("--name")
-    import_product.add_argument("--quantity", type=int, default=0)
-    import_product.add_argument("--price", type=float, default=0)
-
-    return parser
-
-
-def main(argv=None):
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
-    if args.command == "list":
-        return api_request("GET", "/api/items", base_url=args.url)
-    if args.command == "show":
-        return api_request("GET", f"/api/items/{args.id}", base_url=args.url)
-    if args.command == "add":
-        payload = {
-            field: getattr(args, field)
-            for field in (
-                "name",
-                "barcode",
-                "category",
-                "quantity",
-                "price",
-                "description",
-            )
-        }
-        return api_request("POST", "/api/items", payload, args.url)
-    if args.command == "update":
-        payload = {
-            field: getattr(args, field)
-            for field in (
-                "name",
-                "barcode",
-                "category",
-                "quantity",
-                "price",
-                "description",
-            )
-            if getattr(args, field) is not None
-        }
-        if not payload:
-            parser.error("update requires at least one field option")
-        return api_request("PATCH", f"/api/items/{args.id}", payload, args.url)
-    if args.command == "delete":
-        return api_request("DELETE", f"/api/items/{args.id}", base_url=args.url)
-    if args.command == "lookup":
-        if bool(args.barcode) == bool(args.name):
-            parser.error("lookup requires exactly one of --barcode or --name")
-        params = {"barcode": args.barcode} if args.barcode else {"name": args.name}
-        return api_request(
-            "GET", "/api/products/lookup", base_url=args.url, params=params
+    if choice == "1":
+        send_request("GET", "/api/items")
+    elif choice == "2":
+        name = input("Product name: ")
+        quantity = int(input("Quantity: "))
+        price = float(input("Price: "))
+        send_request(
+            "POST",
+            "/api/items",
+            {"name": name, "quantity": quantity, "price": price},
         )
-    if args.command == "import":
-        if bool(args.barcode) == bool(args.name):
-            parser.error("import requires exactly one of --barcode or --name")
-        payload = {
-            "barcode": args.barcode,
-            "name": args.name,
-            "quantity": args.quantity,
-            "price": args.price,
-        }
-        payload = {key: value for key, value in payload.items() if value is not None}
-        return api_request("POST", "/api/items/import", payload, args.url)
-    return 2
+    elif choice == "3":
+        item_id = input("Item ID: ")
+        quantity = int(input("New quantity: "))
+        send_request("PATCH", f"/api/items/{item_id}", {"quantity": quantity})
+    elif choice == "4":
+        item_id = input("Item ID: ")
+        send_request("DELETE", f"/api/items/{item_id}")
+    elif choice == "5":
+        barcode = input("Barcode (leave blank to search by name): ")
+        if barcode:
+            params = {"barcode": barcode}
+        else:
+            params = {"name": input("Product name: ")}
+        send_request("GET", "/api/products/lookup", params=params)
+    elif choice == "6":
+        barcode = input("Barcode (leave blank to search by name): ")
+        quantity = int(input("Quantity: "))
+        price = float(input("Price: "))
+        if barcode:
+            data = {"barcode": barcode, "quantity": quantity, "price": price}
+        else:
+            data = {
+                "name": input("Product name: "),
+                "quantity": quantity,
+                "price": price,
+            }
+        send_request("POST", "/api/items/import", data)
+    else:
+        print("Please choose a number from 1 to 6.")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
